@@ -1,0 +1,37 @@
+# Ignore bundler config
+/.bundle
+
+/ext/whisper.cpp
+/libwhispercpp.so
+
+# Ignore Gem artifacts
+*.gem
+Gemfile.lock
+
+# Ignore log files
+/log/*.log
+
+# Ignore temp files
+/tmp
+/coverage/
+/doc/
+/.yardoc
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore editor-specific files
+.idea/
+/.vscode/
+/*.swp
+
+# Ignore pry history
+.pry_history
+
+# Ignore rake's temp files
+.rake_tasks~
+
+# Ignore test coverage reports
+/coverage
+
