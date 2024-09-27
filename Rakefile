@@ -1,10 +1,6 @@
-# Rakefile
+require 'rake/extensiontask'
 
-desc 'Compile the libwhisper_cpp.so library using extconf.rb'
-task :compile do
-  Dir.chdir('ext/whisper_cpp') do
-    # Run extconf.rb to handle the build process
-    ruby 'extconf.rb'
-  end
+Rake::ExtensionTask.new 'whisper.cpp' do |ext|
+  ext.lib_dir = 'lib/whisper'
 end
 

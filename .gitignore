@@ -2,7 +2,8 @@
 /.bundle
 
 /ext/whisper.cpp
-/libwhispercpp.so
+/lib/libwhispercpp.so
+Makefile
 
 # Ignore Gem artifacts
 *.gem
@@ -28,9 +29,6 @@ Thumbs.db
 
 # Ignore pry history
 .pry_history
-
-# Ignore rake's temp files
-.rake_tasks~
 
 # Ignore test coverage reports
 /coverage
