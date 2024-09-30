@@ -4,7 +4,5 @@ require_relative 'whisper/model'
 
 module Whisper
 
-  VERSION = '0.2.0'
-
 end
 

@@ -1,6 +1,8 @@
+require_relative 'lib/whisper/version'
+
 Gem::Specification.new do |spec|
   spec.name          = 'whisper.cpp'
-  spec.version       = '0.1.0'
+  spec.version       = Whisper::VERSION
   spec.authors       = ['Braulio Oliveira']
   spec.email         = ['brauliobo@gmail.com']
 
