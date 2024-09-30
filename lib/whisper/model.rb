@@ -3,7 +3,10 @@ require_relative 'audio_processor'
 
 module Whisper
   class Model
-    def initialize(model_path)
+
+    TranscriptionResult = Struct.new :language, :output
+
+    def initialize model_path
       params = Whisper.whisper_context_default_params
       # Modify params as needed
       params[:use_gpu] = true
@@ -32,30 +35,33 @@ module Whisper
       result = Whisper.whisper_full @ctx, params, samples_ptr, n_samples
       raise 'Transcription failed' if result != 0
 
+      # Retrieve detected language
+      lang_id = Whisper.whisper_full_lang_id(@ctx)
+      language = Whisper.whisper_lang_str(lang_id)
+
       n_segments = Whisper.whisper_full_n_segments @ctx
+      output = ''
       case format.downcase
       when 'plaintext'
-        transcript = ''
         n_segments.times do |i|
           segment_text = Whisper.whisper_full_get_segment_text @ctx, i
-          transcript += segment_text
+          output += segment_text
         end
-        transcript
       when 'srt'
-        srt_content = ''
         n_segments.times do |i|
-          start_time = Whisper.whisper_full_get_segment_t0(@ctx, i) / 100.0
-          end_time = Whisper.whisper_full_get_segment_t1(@ctx, i) / 100.0
+          start_time   = Whisper.whisper_full_get_segment_t0(@ctx, i) / 100.0
+          end_time     = Whisper.whisper_full_get_segment_t1(@ctx, i) / 100.0
           segment_text = Whisper.whisper_full_get_segment_text @ctx, i
 
-          srt_content += "#{i + 1}\n"
-          srt_content += "#{format_time_srt start_time} --> #{format_time_srt end_time}\n"
-          srt_content += "#{segment_text.strip}\n\n"
+          output += "#{i + 1}\n"
+          output += "#{format_time_srt start_time} --> #{format_time_srt end_time}\n"
+          output += "#{segment_text.strip}\n\n"
         end
-        srt_content
       else
         raise "Unsupported format: #{format}"
       end
+
+      TranscriptionResult.new language, output
     end
 
     def close
@@ -64,13 +70,14 @@ module Whisper
 
     private
 
-    def format_time_srt(seconds)
-      hours = (seconds / 3600).to_i
+    def format_time_srt seconds
+      hours   = (seconds / 3600).to_i
       minutes = ((seconds % 3600) / 60).to_i
-      secs = (seconds % 60).to_i
-      millis = ((seconds - seconds.to_i) * 1000).to_i
+      secs    = (seconds % 60).to_i
+      millis  = ((seconds - seconds.to_i) * 1000).to_i
       format '%02d:%02d:%02d,%03d', hours, minutes, secs, millis
     end
+
   end
 end
 
