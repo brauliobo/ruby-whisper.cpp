@@ -177,5 +177,25 @@ module Whisper
   # Get segment start and end times
   attach_function :whisper_full_get_segment_t0, [:pointer, :int], :int64
   attach_function :whisper_full_get_segment_t1, [:pointer, :int], :int64
+
+    # Get detected language ID
+  attach_function :whisper_full_lang_id, [:pointer], :int
+
+  # Convert language ID to string
+  attach_function :whisper_lang_str, [:int], :string
+
+  # void log_callback(int level, const char *msg, void *user_data);
+  callback :ggml_log_callback, [:int, :string, :pointer], :void
+
+  # Set the log callback
+  attach_function :whisper_log_set, [:ggml_log_callback, :pointer], :void
+
+  # Define a no-op log callback to suppress debug messages
+  NOOP_LOG_CALLBACK = FFI::Function.new(:void, [:int, :string, :pointer]) do |level, msg, user_data|
+    # Intentionally do nothing to suppress logs
+  end
+  # Set the no-op log callback to suppress logging
+  Whisper.whisper_log_set NOOP_LOG_CALLBACK, FFI::Pointer::NULL unless ENV['WHISPER_DEBUG']
+
 end
 
