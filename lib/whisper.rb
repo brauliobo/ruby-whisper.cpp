@@ -29,6 +29,20 @@ module Whisper
     :WHISPER_AHEADS_LARGE_V3
   ]
 
+  # Enums for sampling strategy
+  enum :whisper_sampling_strategy, [
+    :WHISPER_SAMPLING_GREEDY,
+    :WHISPER_SAMPLING_BEAM_SEARCH
+  ]
+
+  # Callbacks
+  callback :whisper_new_segment_callback, [:pointer, :pointer, :int, :pointer], :void
+  callback :whisper_progress_callback, [:pointer, :pointer, :int, :pointer], :void
+  callback :whisper_encoder_begin_callback, [:pointer, :pointer, :pointer], :bool
+  callback :whisper_logits_filter_callback, [:pointer, :pointer, :pointer, :int, :pointer, :pointer], :void
+  callback :ggml_abort_callback, [:pointer], :bool
+  callback :ggml_log_callback, [:int, :string, :pointer], :void
+
   # Structs Definitions
 
   # whisper_ahead struct
@@ -74,6 +88,28 @@ module Whisper
       :t1, :int64,
       :t_dtw, :int64,
       :vlen, :float
+    )
+  end
+
+  # whisper_model_loader struct
+  #class WhisperModelLoader < FFI::Struct
+  #  callback :read_callback, [:pointer, :pointer, :size_t], :size_t
+  #  callback :eof_callback, [:pointer], :bool
+  #  callback :close_callback, [:pointer], :void
+
+  #  layout(
+  #    :context, :pointer,
+  #    :read, :read_callback,
+  #    :eof, :eof_callback,
+  #    :close, :close_callback
+  #  )
+  #end
+
+  # whisper_grammar_element struct
+  class WhisperGrammarElement < FFI::Struct
+    layout(
+      :type, :int,
+      :value, :uint32
     )
   end
 
@@ -134,15 +170,15 @@ module Whisper
       :no_speech_thold, :float,
       :greedy, WhisperGreedyParams,
       :beam_search, WhisperBeamSearchParams,
-      :new_segment_callback, :pointer,
+      :new_segment_callback, :whisper_new_segment_callback,
       :new_segment_callback_user_data, :pointer,
-      :progress_callback, :pointer,
+      :progress_callback, :whisper_progress_callback,
       :progress_callback_user_data, :pointer,
-      :encoder_begin_callback, :pointer,
+      :encoder_begin_callback, :whisper_encoder_begin_callback,
       :encoder_begin_callback_user_data, :pointer,
-      :abort_callback, :pointer,
+      :abort_callback, :ggml_abort_callback,
       :abort_callback_user_data, :pointer,
-      :logits_filter_callback, :pointer,
+      :logits_filter_callback, :whisper_logits_filter_callback,
       :logits_filter_callback_user_data, :pointer,
       :grammar_rules, :pointer,
       :n_grammar_rules, :size_t,
@@ -151,41 +187,162 @@ module Whisper
     )
   end
 
+  # Get default context params
+  attach_function :whisper_context_default_params, [], WhisperContextParams.by_value
+  # Get default full params
+  attach_function :whisper_full_default_params, [:int], WhisperFullParams.by_value
+
   # Function Bindings
 
   # Initialize context with params
   attach_function :whisper_init_from_file_with_params, [:string, WhisperContextParams.by_value], :pointer
+  attach_function :whisper_init_from_buffer_with_params, [:pointer, :size_t, WhisperContextParams.by_value], :pointer
+  #attach_function :whisper_init_with_params, [WhisperModelLoader.by_ref, WhisperContextParams.by_value], :pointer
 
-  # Get default context params
-  attach_function :whisper_context_default_params, [], WhisperContextParams.by_value
+  # Initialize context without state
+  attach_function :whisper_init_from_file_with_params_no_state, [:string, WhisperContextParams.by_value], :pointer
+  attach_function :whisper_init_from_buffer_with_params_no_state, [:pointer, :size_t, WhisperContextParams.by_value], :pointer
+  #attach_function :whisper_init_with_params_no_state, [WhisperModelLoader.by_ref, WhisperContextParams.by_value], :pointer
 
-  # Get default full params
-  attach_function :whisper_full_default_params, [:int], WhisperFullParams.by_value
+  # Initialize state
+  attach_function :whisper_init_state, [:pointer], :pointer
+
+  # OpenVINO functions
+  #attach_function :whisper_ctx_init_openvino_encoder_with_state, [:pointer, :pointer, :string, :string, :string], :int
+  #attach_function :whisper_ctx_init_openvino_encoder, [:pointer, :string, :string, :string], :int
 
   # Free functions
   attach_function :whisper_free, [:pointer], :void
+  attach_function :whisper_free_state, [:pointer], :void
+  attach_function :whisper_free_params, [:pointer], :void
+  attach_function :whisper_free_context_params, [:pointer], :void
+
+  # PCM to Mel spectrogram
+  attach_function :whisper_pcm_to_mel, [:pointer, :pointer, :int, :int], :int
+  attach_function :whisper_pcm_to_mel_with_state, [:pointer, :pointer, :pointer, :int, :int], :int
+
+  # Set custom Mel spectrogram
+  attach_function :whisper_set_mel, [:pointer, :pointer, :int, :int], :int
+  attach_function :whisper_set_mel_with_state, [:pointer, :pointer, :pointer, :int, :int], :int
+
+  # Encode
+  attach_function :whisper_encode, [:pointer, :int, :int], :int
+  attach_function :whisper_encode_with_state, [:pointer, :pointer, :int, :int], :int
+
+  # Decode
+  attach_function :whisper_decode, [:pointer, :pointer, :int, :int, :int], :int
+  attach_function :whisper_decode_with_state, [:pointer, :pointer, :pointer, :int, :int, :int], :int
+
+  # Tokenize
+  attach_function :whisper_tokenize, [:pointer, :string, :pointer, :int], :int
+  attach_function :whisper_token_count, [:pointer, :string], :int
+
+  # Language functions
+  attach_function :whisper_lang_max_id, [], :int
+  attach_function :whisper_lang_id, [:string], :int
+  attach_function :whisper_lang_str, [:int], :string
+  attach_function :whisper_lang_str_full, [:int], :string
+
+  # Auto-detect language
+  attach_function :whisper_lang_auto_detect, [:pointer, :int, :int, :pointer], :int
+  attach_function :whisper_lang_auto_detect_with_state, [:pointer, :pointer, :int, :int, :pointer], :int
+
+  # Model info
+  attach_function :whisper_n_len, [:pointer], :int
+  attach_function :whisper_n_len_from_state, [:pointer], :int
+  attach_function :whisper_n_vocab, [:pointer], :int
+  attach_function :whisper_n_text_ctx, [:pointer], :int
+  attach_function :whisper_n_audio_ctx, [:pointer], :int
+  attach_function :whisper_is_multilingual, [:pointer], :int
+
+  attach_function :whisper_model_n_vocab, [:pointer], :int
+  attach_function :whisper_model_n_audio_ctx, [:pointer], :int
+  attach_function :whisper_model_n_audio_state, [:pointer], :int
+  attach_function :whisper_model_n_audio_head, [:pointer], :int
+  attach_function :whisper_model_n_audio_layer, [:pointer], :int
+  attach_function :whisper_model_n_text_ctx, [:pointer], :int
+  attach_function :whisper_model_n_text_state, [:pointer], :int
+  attach_function :whisper_model_n_text_head, [:pointer], :int
+  attach_function :whisper_model_n_text_layer, [:pointer], :int
+  attach_function :whisper_model_n_mels, [:pointer], :int
+  attach_function :whisper_model_ftype, [:pointer], :int
+  attach_function :whisper_model_type, [:pointer], :int
+
+  # Get logits
+  attach_function :whisper_get_logits, [:pointer], :pointer
+  attach_function :whisper_get_logits_from_state, [:pointer], :pointer
+
+  # Token functions
+  attach_function :whisper_token_to_str, [:pointer, :int32], :string
+  attach_function :whisper_model_type_readable, [:pointer], :string
+
+  # Special tokens
+  attach_function :whisper_token_eot, [:pointer], :int32
+  attach_function :whisper_token_sot, [:pointer], :int32
+  attach_function :whisper_token_solm, [:pointer], :int32
+  attach_function :whisper_token_prev, [:pointer], :int32
+  attach_function :whisper_token_nosp, [:pointer], :int32
+  attach_function :whisper_token_not, [:pointer], :int32
+  attach_function :whisper_token_beg, [:pointer], :int32
+  attach_function :whisper_token_lang, [:pointer, :int], :int32
+
+  # Task tokens
+  attach_function :whisper_token_translate, [:pointer], :int32
+  attach_function :whisper_token_transcribe, [:pointer], :int32
+
+  # Timings
+  attach_function :whisper_print_timings, [:pointer], :void
+  attach_function :whisper_reset_timings, [:pointer], :void
+  attach_function :whisper_print_system_info, [], :string
 
   # Full transcription function
   attach_function :whisper_full, [:pointer, WhisperFullParams.by_value, :pointer, :int], :int
+  attach_function :whisper_full_with_state, [:pointer, :pointer, WhisperFullParams.by_value, :pointer, :int], :int
+
+  # Parallel processing
+  attach_function :whisper_full_parallel, [:pointer, WhisperFullParams.by_value, :pointer, :int, :int], :int
 
   # Number of segments
   attach_function :whisper_full_n_segments, [:pointer], :int
+  attach_function :whisper_full_n_segments_from_state, [:pointer], :int
 
-  # Get segment text
-  attach_function :whisper_full_get_segment_text, [:pointer, :int], :string
-
-  # Get segment start and end times
+  # Get segment info
   attach_function :whisper_full_get_segment_t0, [:pointer, :int], :int64
+  attach_function :whisper_full_get_segment_t0_from_state, [:pointer, :int], :int64
+
   attach_function :whisper_full_get_segment_t1, [:pointer, :int], :int64
+  attach_function :whisper_full_get_segment_t1_from_state, [:pointer, :int], :int64
 
-    # Get detected language ID
+  attach_function :whisper_full_get_segment_speaker_turn_next, [:pointer, :int], :bool
+  attach_function :whisper_full_get_segment_speaker_turn_next_from_state, [:pointer, :int], :bool
+
+  attach_function :whisper_full_get_segment_text, [:pointer, :int], :string
+  attach_function :whisper_full_get_segment_text_from_state, [:pointer, :int], :string
+
+  attach_function :whisper_full_n_tokens, [:pointer, :int], :int
+  attach_function :whisper_full_n_tokens_from_state, [:pointer, :int], :int
+
+  attach_function :whisper_full_get_token_text, [:pointer, :int, :int], :string
+  attach_function :whisper_full_get_token_text_from_state, [:pointer, :pointer, :int, :int], :string
+
+  attach_function :whisper_full_get_token_id, [:pointer, :int, :int], :int32
+  attach_function :whisper_full_get_token_id_from_state, [:pointer, :int, :int], :int32
+
+  attach_function :whisper_full_get_token_data, [:pointer, :int, :int], WhisperTokenData.by_value
+  attach_function :whisper_full_get_token_data_from_state, [:pointer, :int, :int], WhisperTokenData.by_value
+
+  attach_function :whisper_full_get_token_p, [:pointer, :int, :int], :float
+  attach_function :whisper_full_get_token_p_from_state, [:pointer, :int, :int], :float
+
+  # Language ID
   attach_function :whisper_full_lang_id, [:pointer], :int
+  attach_function :whisper_full_lang_id_from_state, [:pointer], :int
 
-  # Convert language ID to string
-  attach_function :whisper_lang_str, [:int], :string
-
-  # void log_callback(int level, const char *msg, void *user_data);
-  callback :ggml_log_callback, [:int, :string, :pointer], :void
+  # Benchmarks
+  attach_function :whisper_bench_memcpy, [:int], :int
+  attach_function :whisper_bench_memcpy_str, [:int], :string
+  attach_function :whisper_bench_ggml_mul_mat, [:int], :int
+  attach_function :whisper_bench_ggml_mul_mat_str, [:int], :string
 
   # Set the log callback
   attach_function :whisper_log_set, [:ggml_log_callback, :pointer], :void
@@ -196,6 +353,5 @@ module Whisper
   end
   # Set the no-op log callback to suppress logging
   Whisper.whisper_log_set NOOP_LOG_CALLBACK, FFI::Pointer::NULL unless ENV['WHISPER_DEBUG']
-
 end
 
