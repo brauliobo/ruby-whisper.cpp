@@ -75,6 +75,12 @@ module Whisper
       strategy = params.fetch(:sampling_strategy, Whisper::WHISPER_SAMPLING_GREEDY)
       full_params = Whisper.whisper_full_default_params(strategy)
 
+        # Set translate to false to prevent translation to English
+      full_params[:translate] = false
+      # Set language to NULL for auto-detection
+      full_params[:language] = FFI::Pointer::NULL
+      full_params[:detect_language] = true
+
       # Set user-provided full params
       user_full_params = params.fetch(:full_params, {})
       user_full_params.each do |key, value|
