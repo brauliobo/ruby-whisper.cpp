@@ -77,9 +77,6 @@ module Whisper
 
         # Set translate to false to prevent translation to English
       full_params[:translate] = false
-      # Set language to NULL for auto-detection
-      full_params[:language] = FFI::Pointer::NULL
-      full_params[:detect_language] = true
 
       # Set user-provided full params
       user_full_params = params.fetch(:full_params, {})
