@@ -8,6 +8,7 @@ module Whisper
     def initialize(model_path)
       @model_path = model_path
       @ctx = nil
+      init_whisper_context
     end
 
     def transcribe_from_file(audio_file_path, format: 'plaintext', **params)
@@ -17,8 +18,6 @@ module Whisper
     end
 
     def transcribe_from_audio_data(audio_data, format: 'plaintext', **params)
-      init_whisper_context(params)
-
       # Prepare full params
       full_params = default_full_params(params)
 
@@ -49,19 +48,13 @@ module Whisper
 
     private
 
-    def init_whisper_context(params)
+    def init_whisper_context params = {}
       return unless @ctx.nil?
 
       ctx_params = Whisper.whisper_context_default_params
 
-      # Set user-provided context params
-      user_ctx_params = params.fetch(:context_params, {})
-      user_ctx_params.each do |key, value|
-        if ctx_params.members.include?(field)
-          ctx_params[key] = value
-        else
-          warn "Unknown context_param field: #{field}"
-        end
+      params.select{ |k, _| ctx_params.members.include? k }.each do |key, value|
+        ctx_params[key] = value
       end
       ctx_params[:gpu_device] = ENV['WHISPER_GPU']&.to_i || 0
 
@@ -70,22 +63,18 @@ module Whisper
       raise 'Failed to initialize Whisper model' if @ctx.null?
     end
 
-    def default_full_params(params)
+    def default_full_params params = {}
       # Get default full params
       strategy = params.fetch(:sampling_strategy, Whisper::WHISPER_SAMPLING_GREEDY)
       full_params = Whisper.whisper_full_default_params(strategy)
 
-        # Set translate to false to prevent translation to English
+      # Set translate to false to prevent translation to English
       full_params[:translate] = false
+      full_params[:language]  = FFI::MemoryPointer.from_string 'auto'
 
       # Set user-provided full params
-      user_full_params = params.fetch(:full_params, {})
-      user_full_params.each do |key, value|
-        if full_params.members.include?(field)
-          full_params[key] = value
-        else
-          warn "Unknown full_param field: #{field}"
-        end
+      params.select{ |k, _| full_params.members.include? k }.each do |key, value|
+        full_params[key] = value
       end
 
       full_params
