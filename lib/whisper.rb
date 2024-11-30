@@ -26,7 +26,19 @@ module Whisper
     :WHISPER_AHEADS_MEDIUM,
     :WHISPER_AHEADS_LARGE_V1,
     :WHISPER_AHEADS_LARGE_V2,
-    :WHISPER_AHEADS_LARGE_V3
+    :WHISPER_AHEADS_LARGE_V3,
+    :WHISPER_AHEADS_LARGE_V3_TURBO  # Added new enum value
+  ]
+
+  # Enums for grammar element type
+  enum :whisper_gretype, [
+    :WHISPER_GRETYPE_END,            0,
+    :WHISPER_GRETYPE_ALT,
+    :WHISPER_GRETYPE_RULE_REF,
+    :WHISPER_GRETYPE_CHAR,
+    :WHISPER_GRETYPE_CHAR_NOT,
+    :WHISPER_GRETYPE_CHAR_RNG_UPPER,
+    :WHISPER_GRETYPE_CHAR_ALT
   ]
 
   # Enums for sampling strategy
@@ -93,7 +105,7 @@ module Whisper
 
   # whisper_model_loader struct
   #class WhisperModelLoader < FFI::Struct
-  #  callback :read_callback, [:pointer, :pointer, :size_t], :size_t
+  #  callback :read_callback, [:pointer, :pointer], :size_t
   #  callback :eof_callback, [:pointer], :bool
   #  callback :close_callback, [:pointer], :void
 
@@ -108,7 +120,7 @@ module Whisper
   # whisper_grammar_element struct
   class WhisperGrammarElement < FFI::Struct
     layout(
-      :type, :int,
+      :type, :whisper_gretype,
       :value, :uint32
     )
   end
@@ -131,7 +143,7 @@ module Whisper
   # whisper_full_params struct
   class WhisperFullParams < FFI::Struct
     layout(
-      :strategy, :int,
+      :strategy, :whisper_sampling_strategy,
       :n_threads, :int,
       :n_max_text_ctx, :int,
       :offset_ms, :int,
@@ -189,8 +201,10 @@ module Whisper
 
   # Get default context params
   attach_function :whisper_context_default_params, [], WhisperContextParams.by_value
+  attach_function :whisper_context_default_params_by_ref, [], :pointer
   # Get default full params
-  attach_function :whisper_full_default_params, [:int], WhisperFullParams.by_value
+  attach_function :whisper_full_default_params, [:whisper_sampling_strategy], WhisperFullParams.by_value
+  attach_function :whisper_full_default_params_by_ref, [:whisper_sampling_strategy], :pointer
 
   # Function Bindings
 
@@ -208,8 +222,8 @@ module Whisper
   attach_function :whisper_init_state, [:pointer], :pointer
 
   # OpenVINO functions
-  #attach_function :whisper_ctx_init_openvino_encoder_with_state, [:pointer, :pointer, :string, :string, :string], :int
-  #attach_function :whisper_ctx_init_openvino_encoder, [:pointer, :string, :string, :string], :int
+  attach_function :whisper_ctx_init_openvino_encoder_with_state, [:pointer, :pointer, :string, :string, :string], :int
+  attach_function :whisper_ctx_init_openvino_encoder, [:pointer, :string, :string, :string], :int
 
   # Free functions
   attach_function :whisper_free, [:pointer], :void
